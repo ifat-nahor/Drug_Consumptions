@@ -411,16 +411,25 @@ def assess_demographic_variables(df):
     print("="*80)
     
     demographic_report = {}
+    def assess_demographic_variables(df):
+   
+    
+     print("\n" + "="*80)
+    print("[STEP 7] DEMOGRAPHIC VARIABLES CONSISTENCY CHECK")
+    print("="*80)
+    
+    demographic_report = {}
     
     ## Age distribution analysis
     if 'Age' in df.columns:
         print(f"\n📊 AGE DISTRIBUTION:")
-        print(f"   Unique Values: {df['Age'].nunique()}")
-        print(f"   Range: {df['Age'].min()} to {df['Age'].max()}")
-        print(f"   Mean: {df['Age'].mean():.2f} | SD: {df['Age'].std():.2f}")
+        age_series = pd.to_numeric(df['Age'], errors='coerce')
+        print(f"   Unique Values: {age_series.nunique()}")
+        print(f"   Range: {age_series.min()} to {age_series.max()}")
+        print(f"   Mean: {age_series.mean():.2f} | SD: {age_series.std():.2f}")
         demographic_report['age'] = {
-            'unique': df['Age'].nunique(),
-            'range': (df['Age'].min(), df['Age'].max())
+            'unique': age_series.nunique(),
+            'range': (age_series.min(), age_series.max())
         }
     
     ## Gender distribution analysis
@@ -454,6 +463,11 @@ def assess_demographic_variables(df):
         demographic_report['country'] = country_counts.to_dict()
     
     return demographic_report
+
+
+    
+    
+   
 
 
 ## ============================================================================
