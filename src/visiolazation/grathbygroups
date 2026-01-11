@@ -1,0 +1,77 @@
+import pandas as pd
+import seaborn as sns
+import matplotlib.pyplot as plt
+import os
+
+# --- 1. הגדרת משפחות הסמים ---
+# הערה: השמות צריכים להתאים לעמודות בקובץ ה-CSV שלך
+stimulants = ['Amphet', 'Coke', 'Crack', 'Ecstasy', 'Nicotine']
+depressants = ['Alcohol', 'Benzos', 'Cannabis', 'Heroin', 'Meth']
+hallucinogens = ['LSD', 'Mushrooms', 'Ketamine']
+
+# --- 2. יצירת ציונים למשפחות (מבוסס על df_cleaned) ---
+# נחשב ציון ממוצע לכל משפחה
+df_cleaned['Score_Stimulants'] = df_cleaned[[c for c in stimulants if c in df_cleaned.columns]].mean(axis=1)
+df_cleaned['Score_Depressants'] = df_cleaned[[c for c in depressants if c in df_cleaned.columns]].mean(axis=1)
+df_cleaned['Score_Hallucinogens'] = df_cleaned[[c for c in hallucinogens if c in df_cleaned.columns]].mean(axis=1)
+
+# --- 3. הכנת נתונים לגרף ההשוואתי ---
+# נזהה משתמשים "כבדים" (למשל ציון ממוצע מעל 3) בכל קטגוריה ונחשב את ממוצע התכונות שלהם
+family_comparison = []
+
+families = {
+    'Stimulants': 'Score_Stimulants',
+    'Depressants': 'Score_Depressants',
+    'Hallucinogens': 'Score_Hallucinogens'
+}
+
+# שימוש בשמות העמודות כפי שהם מופיעים בדאטה שלך (BIS11 ו-ImpSS)
+traits = {'Impulsivity': 'BIS11', 'Sensation Seeking': 'ImpSS'}
+
+for family_name, score_col in families.items():
+    # סינון משתמשים כבדים של המשפחה הזו
+    heavy_users = df_cleaned[df_cleaned[score_col] >= 3]
+    
+    for trait_label, trait_col in traits.items():
+        if trait_col in df_cleaned.columns:
+            mean_val = heavy_users[trait_col].mean()
+            family_comparison.append({
+                'Drug Family': family_name,
+                'Personality Trait': trait_label,
+                'Mean Score': mean_val
+            })
+
+# הפיכה ל-DataFrame לצורך גרף
+plot_df = pd.DataFrame(family_comparison)
+
+# --- 4. יצירת הגרף ---
+plt.figure(figsize=(12, 7))
+sns.set_style("whitegrid")
+
+# יצירת גרף עמודות מקובץ (Grouped Bar Chart)
+ax = sns.barplot(x='Drug Family', y='Mean Score', hue='Personality Trait', 
+                 data=plot_df, palette='muted')
+
+# הוספת כותרות ועיצוב
+plt.title('Personality Profile by Drug Family\n(Average Scores for Regular Users)', fontsize=16, pad=20)
+plt.ylabel('Average Standardized Score', fontsize=12)
+plt.xlabel('Drug Family', fontsize=12)
+plt.ylim(plot_df['Mean Score'].min() - 0.2, plot_df['Mean Score'].max() + 0.3)
+
+# הוספת ערכים מספריים מעל העמודות
+for p in ax.patches:
+    ax.annotate(format(p.get_height(), '.2f'), 
+                (p.get_x() + p.get_width() / 2., p.get_height()), 
+                ha = 'center', va = 'center', 
+                xytext = (0, 9), 
+                textcoords = 'offset points',
+                fontsize=10, fontweight='bold')
+
+plt.tight_layout()
+
+# שמירת הגרף
+output_path = os.path.join(current_dir, 'personality_by_drug_family.png')
+plt.savefig(output_path)
+
+print(f"✓ Analysis by drug family completed.")
+print(f"✓ Comparison graph saved as: {output_path}")
