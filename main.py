@@ -1,6 +1,6 @@
 import pandas as pd
 import os
-from tests.data_cleaning import execute_complete_cleaning_pipeline
+from src.data_cleaning import execute_complete_cleaning_pipeline
 
 ## Get the current directory
 current_dir = os.path.dirname(os.path.abspath(__file__))
