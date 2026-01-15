@@ -122,6 +122,42 @@ def plot_personality_profiles(df):
     
     return means
 
+def plot_personality_profiles_radar(df):
+    """Radar plot of mean personality traits per cluster."""
+    import numpy as np
+
+    # ממוצעי האישיות לכל קלאסטר
+    means = df.groupby('Cluster')[PERSONALITY_COLS].mean()
+
+    # מספר התכונות
+    num_traits = len(PERSONALITY_COLS)
+
+    # זוויות לכל ציר (מעגל מלא)
+    angles = np.linspace(0, 2 * np.pi, num_traits, endpoint=False)
+    # לחזור לנקודת ההתחלה כדי לסגור את הצורה
+    angles = np.concatenate((angles, [angles[0]]))
+
+    plt.figure(figsize=(6, 6))
+    ax = plt.subplot(111, polar=True)
+
+    # ציור כל קלאסטר
+    for cluster in means.index:
+        values = means.loc[cluster].values
+        values = np.concatenate((values, [values[0]]))  # לסגור את הפוליגון
+        ax.plot(angles, values, label=f'Cluster {cluster}')
+        ax.fill(angles, values, alpha=0.1)
+
+    # הגדרות צירים ותוויות
+    ax.set_xticks(angles[:-1])
+    ax.set_xticklabels(PERSONALITY_COLS)
+    ax.set_title('Personality profiles by cluster (radar plot)')
+    ax.legend(loc='upper right', bbox_to_anchor=(1.1, 1.1))
+
+    plt.tight_layout()
+    plt.savefig("personality_profiles_radar.png", dpi=300)
+    plt.show()
+
+    return means
 
 
 def analyze_substance_use(df, drug_columns, k):
