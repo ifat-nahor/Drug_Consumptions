@@ -7,6 +7,7 @@ from Personality_Based_Drug_Usage_Predictor import (
     PCA_COMPONENTS,
     load_and_scale_data,
     apply_pca,
+    plot_personality_profiles_radar,
     run_k_selection_diagnostics,
     perform_final_clustering,
     describe_personality_profiles,
@@ -31,6 +32,8 @@ def main():
     # 3b. Visualizations – שני הגרפים החדשים
     plot_pca_clusters(x_pca, df_analyzed)
     plot_personality_profiles(df_analyzed)
+    plot_personality_profiles_radar(df_analyzed)
+
     
     # 4. Statistical Validation
     results_df = analyze_substance_use(df_analyzed, DRUG_COLS, FINAL_K)
