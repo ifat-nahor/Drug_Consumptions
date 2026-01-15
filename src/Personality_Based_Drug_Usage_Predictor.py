@@ -9,6 +9,14 @@ from sklearn.metrics import silhouette_score
 from scipy.stats import f_oneway
 import warnings
 
+import os
+
+PLOTS_DIR = r"C:\Users\ifatn\OneDrive\phyton_bit\final_proj\final_proj\src\visiolazation"
+
+# Create directory if it doesn't exist
+os.makedirs(PLOTS_DIR, exist_ok=True)
+
+
 # Configuration
 warnings.filterwarnings('ignore')
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
@@ -63,7 +71,7 @@ def run_k_selection_diagnostics(pca_data, k_range):
     ax2.set_title('Silhouette Scores')
     plt.tight_layout()
     plt.tight_layout()
-    plt.savefig("k_selection_diagnostics.png", dpi=300)
+    plt.savefig(os.path.join(PLOTS_DIR, "k_selection_diagnostics.png"), dpi=300)
     plt.show()
 
 def perform_final_clustering(df, pca_data, k):
@@ -92,7 +100,7 @@ def plot_pca_clusters(pca_data, df):
     plt.title('Personality space (PC1 vs PC2) by cluster')
     plt.colorbar(scatter, label='Cluster')
     plt.tight_layout()
-    plt.savefig("pca_clusters.png", dpi=300)
+    plt.savefig(os.path.join(PLOTS_DIR, "pca_clusters.png"), dpi=300)
     plt.show()
 
 def plot_personality_profiles(df):
@@ -116,7 +124,7 @@ def plot_personality_profiles(df):
     plt.title('Personality profiles by cluster')
     plt.legend()
     plt.tight_layout()
-    plt.savefig("personality_profiles.png", dpi=300)
+    plt.savefig(os.path.join(PLOTS_DIR, "personality_profiles.png"), dpi=300)
     plt.show()
    
     
@@ -126,35 +134,34 @@ def plot_personality_profiles_radar(df):
     """Radar plot of mean personality traits per cluster."""
     import numpy as np
 
-    # ממוצעי האישיות לכל קלאסטר
+   
     means = df.groupby('Cluster')[PERSONALITY_COLS].mean()
 
-    # מספר התכונות
+
     num_traits = len(PERSONALITY_COLS)
 
-    # זוויות לכל ציר (מעגל מלא)
+ 
     angles = np.linspace(0, 2 * np.pi, num_traits, endpoint=False)
-    # לחזור לנקודת ההתחלה כדי לסגור את הצורה
+  
     angles = np.concatenate((angles, [angles[0]]))
 
     plt.figure(figsize=(6, 6))
     ax = plt.subplot(111, polar=True)
 
-    # ציור כל קלאסטר
     for cluster in means.index:
         values = means.loc[cluster].values
-        values = np.concatenate((values, [values[0]]))  # לסגור את הפוליגון
+        values = np.concatenate((values, [values[0]])) 
         ax.plot(angles, values, label=f'Cluster {cluster}')
         ax.fill(angles, values, alpha=0.1)
 
-    # הגדרות צירים ותוויות
+  
     ax.set_xticks(angles[:-1])
     ax.set_xticklabels(PERSONALITY_COLS)
     ax.set_title('Personality profiles by cluster (radar plot)')
     ax.legend(loc='upper right', bbox_to_anchor=(1.1, 1.1))
 
     plt.tight_layout()
-    plt.savefig("personality_profiles_radar.png", dpi=300)
+    plt.savefig(os.path.join(PLOTS_DIR, "personality_profiles_radar.png"), dpi=300)
     plt.show()
 
     return means
