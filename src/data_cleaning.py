@@ -3,6 +3,7 @@ import numpy as np
 from scipy import stats
 import warnings
 warnings.filterwarnings('ignore')
+from sklearn.cluster import KMeans
 
 
 ## ============================================================================
@@ -411,16 +412,25 @@ def assess_demographic_variables(df):
     print("="*80)
     
     demographic_report = {}
+    def assess_demographic_variables(df):
+   
+    
+     print("\n" + "="*80)
+    print("[STEP 7] DEMOGRAPHIC VARIABLES CONSISTENCY CHECK")
+    print("="*80)
+    
+    demographic_report = {}
     
     ## Age distribution analysis
     if 'Age' in df.columns:
         print(f"\n📊 AGE DISTRIBUTION:")
-        print(f"   Unique Values: {df['Age'].nunique()}")
-        print(f"   Range: {df['Age'].min()} to {df['Age'].max()}")
-        print(f"   Mean: {df['Age'].mean():.2f} | SD: {df['Age'].std():.2f}")
+        age_series = pd.to_numeric(df['Age'], errors='coerce')
+        print(f"   Unique Values: {age_series.nunique()}")
+        print(f"   Range: {age_series.min()} to {age_series.max()}")
+        print(f"   Mean: {age_series.mean():.2f} | SD: {age_series.std():.2f}")
         demographic_report['age'] = {
-            'unique': df['Age'].nunique(),
-            'range': (df['Age'].min(), df['Age'].max())
+            'unique': age_series.nunique(),
+            'range': (age_series.min(), age_series.max())
         }
     
     ## Gender distribution analysis
@@ -454,6 +464,11 @@ def assess_demographic_variables(df):
         demographic_report['country'] = country_counts.to_dict()
     
     return demographic_report
+
+
+    
+    
+   
 
 
 ## ============================================================================
@@ -730,11 +745,101 @@ def execute_complete_cleaning_pipeline(df, personality_cols, drug_columns):
     print("="*80)
     
     return df, cleaning_report
+
+## ============================================================================
+## SECTION 9: ADVANCED FEATURE ENGINEERING
+## ============================================================================
+## This section handles all creation of new variables:
+## 1. Aggregating specific drugs into pharmacological families (Stimulants, etc.)
+## 2. Using Machine Learning (K-Means) to create user clusters.
+
+from sklearn.cluster import KMeans
+import numpy as np
+
+def aggregate_drug_families(df):
+    """
+    Part A: Group individual drugs into pharmacological families.
+    Logic: Take the MAX usage score within the family.
+    """
+    print("\n" + "-"*80)
+    print("[STEP 9A] AGGREGATING DRUG FAMILIES")
+    print("-"*80)
+    
+    # 1. Define Families
+    stimulants = ['Amphet', 'Coke', 'Crack', 'Meth', 'Nicotine']
+    depressants = ['Alcohol', 'Benzos', 'Heroin']
+    hallucinogens = ['LSD', 'Mushrooms']
+    
+    # 2. Identify available columns
+    available_cols = df.columns.tolist()
+    stim_cols = [c for c in stimulants if c in available_cols]
+    dep_cols = [c for c in depressants if c in available_cols]
+    hall_cols = [c for c in hallucinogens if c in available_cols]
+    
+    # 3. Create Scores
+    if stim_cols:
+        df['Score_Stimulants'] = df[stim_cols].max(axis=1)
+    if dep_cols:
+        df['Score_Depressants'] = df[dep_cols].max(axis=1)
+    if hall_cols:
+        df['Score_Hallucinogens'] = df[hall_cols].max(axis=1)
+        
+    print(f"✓ Created family scores for: Stimulants, Depressants, Hallucinogens")
+    return df
+
+def create_usage_groups_kmeans(df, target_drug):
+    """
+    Part B: Apply K-Means Clustering to identify natural usage groups.
+    """
+    print("\n" + "-"*80)
+    print(f"[STEP 9B] GENERATING CLUSTERS (K-MEANS) FOR: {target_drug}")
+    print("-"*80)
+    
+    if target_drug not in df.columns:
+        # Check if maybe the user wants to cluster on a family created in Part A
+        print(f"⚠ Warning: Column '{target_drug}' not found. Checking if it's a generated family...")
+    
+    # 1. Prepare Data
+    X = df[[target_drug]].values
+    
+    # 2. Fit K-Means
+    kmeans = KMeans(n_clusters=3, random_state=42, n_init=10)
+    kmeans.fit(X)
+    
+    # 3. Label Mapping (Sort clusters by severity)
+    temp_df = pd.DataFrame({'Score': df[target_drug], 'Cluster': kmeans.labels_})
+    cluster_centers = temp_df.groupby('Cluster')['Score'].mean().sort_values()
+    sorted_clusters = cluster_centers.index.tolist()
+    
+    name_mapping = {
+        sorted_clusters[0]: 'Non-User',
+        sorted_clusters[1]: 'Occasional',
+        sorted_clusters[2]: 'Regular'
+    }
+    
+    df['Usage_Group'] = temp_df['Cluster'].map(name_mapping)
+    
+    print(f"✓ Clusters created for '{target_drug}':")
+    print(df['Usage_Group'].value_counts())
+    
+    return df
+
+def execute_feature_engineering(df, clustering_target='Cannabis'):
+    """
+    Master function for Section 9 that runs all feature engineering steps.
+    """
+    print("\n" + "="*80)
+    print("STARTING FEATURE ENGINEERING PHASE")
+    print("="*80)
+    
+    # Run Part A: Families
+    df = aggregate_drug_families(df)
+    
+    # Run Part B: Clustering
+    df = create_usage_groups_kmeans(df, clustering_target)
+    
+    return df
   
-
-
-
-
 
 '''SECTION 1: Data Quality Assessment
 ├── assess_dataset_overview()
@@ -763,5 +868,87 @@ SECTION 7: Normality Testing
 └── assess_normality_and_distribution()
 
 SECTION 8: Master Function
-└── execute_complete_cleaning_pipeline() ← זה מריץ הכל!
+└── execute_complete_cleaning_pipeline() <-- Orchestrates Sections 1-7 and returns fully cleaned data
+
+SECTION 9: Advanced Feature Engineering
+├── aggregate_drug_families()      <-- Part A: Creates Stimulants/Depressants scores
+├── create_usage_groups_kmeans()   <-- Part B: ML Clustering for user profiles
+└── execute_feature_engineering()  <-- Master function that runs both A and B
 '''
+
+# src/data_cleaning.py
+
+import os
+import pandas as pd
+
+
+def detect_personality_and_drug_columns(df):
+    """
+    Automatically detect personality trait columns and drug consumption columns.
+
+    - Personality columns: numeric, typically standardized scores in range [-4, 4].
+    - Drug columns: categorical with values like 'CL0'–'CL6'.
+    """
+    # Select numeric columns (potential personality traits)
+    numeric_cols = df.select_dtypes(include=["float64", "int64"]).columns.tolist()
+    if "ID" in numeric_cols:
+        # ID should not be treated as a numeric feature
+        numeric_cols.remove("ID")
+
+    personality_cols = []
+    for col in numeric_cols:
+        col_min = df[col].min()
+        col_max = df[col].max()
+        # Personality scores in this dataset are standardized around [-4, 4]
+        if col_min >= -4 and col_max <= 4:
+            personality_cols.append(col)
+
+    # Select categorical columns (potential drug variables)
+    categorical_cols = df.select_dtypes(include=["object"]).columns.tolist()
+
+    drug_columns = []
+    for col in categorical_cols:
+        unique_values = df[col].unique()
+        # Drug columns contain codes like 'CL0', 'CL1', ..., 'CL6'
+        if any("CL" in str(val) for val in unique_values):
+            drug_columns.append(col)
+
+    # Fallback: if no personality columns detected, use all numeric columns
+    if not personality_cols:
+        personality_cols = numeric_cols
+
+    return personality_cols, drug_columns
+
+
+def run_data_cleaning_pipeline():
+    """
+    High-level wrapper that:
+    1. Loads the raw dataset from disk.
+    2. Detects personality and drug columns.
+    3. Runs the full cleaning pipeline.
+    4. Saves the cleaned dataset to the processed folder.
+    """
+    # 1. Build path to the raw CSV file
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    csv_path = os.path.join(current_dir, "..", "data", "raw", "Drug_Consumption.csv")
+
+    # 2. Load raw data
+    df = pd.read_csv(csv_path)
+
+    # 3. Detect personality trait and drug consumption columns
+    personality_cols, drug_columns = detect_personality_and_drug_columns(df)
+
+    # 4. Run the existing full cleaning pipeline
+    df_cleaned, cleaning_report = execute_complete_cleaning_pipeline(
+        df,
+        personality_cols=personality_cols,
+        drug_columns=drug_columns,
+    )
+
+    # 5. Save cleaned data to the processed folder
+    output_path = os.path.join(
+        current_dir, "..", "data", "processed", "Drug_Consumption_Cleaned.csv"
+    )
+    df_cleaned.to_csv(output_path, index=False)
+
+    return df_cleaned, cleaning_report

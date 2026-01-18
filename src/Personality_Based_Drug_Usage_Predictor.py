@@ -81,6 +81,8 @@ def perform_final_clustering(df, pca_data, k):
     logger.info(f"Final clustering completed with K={k}")
     return df
 
+
+
 def describe_personality_profiles(df):
     means = df.groupby('Cluster')[PERSONALITY_COLS].mean()
     logger.info("Personality profiles (cluster means):")
@@ -179,5 +181,50 @@ def analyze_substance_use(df, drug_columns, k):
             'p_value': p_val,
             'Is_Significant': p_val < 0.05
         })
+        results_df = pd.DataFrame(results)
+    return results_df
     return pd.DataFrame(results)
+
+def compute_and_save_mean_substance_use(df):
+    """Compute mean substance use per cluster and save to CSV."""
+    mean_use = df.groupby('Cluster')[DRUG_COLS].mean()
+
+    mean_use_path = os.path.join(PLOTS_DIR, "mean_substance_use_by_cluster.csv")
+    mean_use.to_csv(mean_use_path)
+    logger.info(f"Mean substance use table saved to: {mean_use_path}")
+
+    return mean_use
+
+def summarize_substance_use_patterns(mean_use):
+    """
+    Create a summary table: for each drug, which cluster has
+    the highest and lowest mean use.
+    """
+    summary_rows = []
+
+    for drug in DRUG_COLS:
+        col = mean_use[drug]
+        max_cluster = col.idxmax()
+        min_cluster = col.idxmin()
+
+        summary_rows.append({
+            "Drug": drug,
+            "Max_Cluster": int(max_cluster),
+            "Max_Mean": col[max_cluster],
+            "Min_Cluster": int(min_cluster),
+            "Min_Mean": col[min_cluster],
+        })
+
+    summary_df = pd.DataFrame(summary_rows)
+
+    logger.info("Summary of substance use by cluster (max/min means):")
+    logger.info("\n" + summary_df.to_string(index=False, float_format=lambda v: f"{v:.2f}"))
+
+    summary_path = os.path.join(PLOTS_DIR, "substance_use_cluster_summary.csv")
+    summary_df.to_csv(summary_path, index=False)
+    logger.info(f"Substance use summary table saved to: {summary_path}")
+
+    return summary_df
+
+
 
