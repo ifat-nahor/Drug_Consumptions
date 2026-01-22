@@ -225,6 +225,3 @@ def summarize_substance_use_patterns(mean_use):
     logger.info(f"Substance use summary table saved to: {summary_path}")
 
     return summary_df
-
-
-
