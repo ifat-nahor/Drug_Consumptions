@@ -395,7 +395,7 @@ def assess_normality_and_distribution(df, numeric_cols):
             kurtosis = data.kurtosis()
             
             ## Shapiro-Wilk normality test (limited to 5000 samples for efficiency)
-            sample_data = data.sample(min(5000, len(data)), random_state=42)
+            sample_data = data.sample(min(5000, len(data)), random_state=5)
             stat, p_val = stats.shapiro(sample_data)
             
             ## Determine normality status based on all three tests
@@ -546,7 +546,7 @@ def create_usage_groups_kmeans(df, target_drug):
     
     # 2. Fit K-Means
     try:
-        kmeans = KMeans(n_clusters=3, random_state=42, n_init=10)
+        kmeans = KMeans(n_clusters=3, random_state=5, n_init=10)
         kmeans.fit(X)
     
         temp_df = pd.DataFrame({'Score': df[target_drug], 'Cluster': kmeans.labels_})
