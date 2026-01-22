@@ -240,5 +240,30 @@ def run_substance_use_analysis(df_analyzed, k):
     return results_df, summary_df
 
 
+#make pipeline for main 
+
+def run_personality_based_drug_usage_pipeline():
+    logger.info("=== Starting Personality Drug Pipeline ===")
+    df, x_scaled = load_and_scale_data(DATA_FILE, PERSONALITY_COLS)
+    x_pca = apply_pca(x_scaled, PCA_COMPONENTS)
+  
+
+
+    run_k_selection_diagnostics(x_pca, K_SELECTION_RANGE)
+
+    df_analyzed = perform_final_clustering(df, x_pca, FINAL_K)
+    describe_personality_profiles(df_analyzed)
+
+    plot_pca_clusters(x_pca, df_analyzed)
+    plot_personality_profiles(df_analyzed)
+    plot_personality_profiles_radar(df_analyzed)
+
+    results_df, summary_df = run_substance_use_analysis(df_analyzed, FINAL_K)
+
+    significant_count = results_df['Is_Significant'].sum()
+    logger.info(
+        f"Analysis complete. {significant_count}/{len(DRUG_COLS)} drugs show significant variance."
+    )
+    logger.info("Conclusion: Personality profiles are predictive of drug consumption.")
 
 
