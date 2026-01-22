@@ -9,11 +9,10 @@ logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 logger = logging.getLogger(__name__)
 # =============================================================================
 # STAGE 1: Environment Setup & Data Loading
-# =============================================================================
 # Identify the absolute path of the current script
 current_file = Path(__file__).resolve()
-# Navigate 3 levels up to reach the project root directory
-project_root = current_file.parent.parent.parent
+# Navigate 2 levels up to reach the project root directory
+project_root = current_file.parent.parent
 # Define paths for input data and output visualizations
 file_path = project_root / 'data' / 'processed' / 'Drug_Consumption_Cleaned.csv'
 output_dir = project_root / 'plot_pics'
@@ -42,10 +41,8 @@ for group_name, drugs in groups.items():
 
 # =============================================================================
 # STAGE 2: Personality-Usage Escalation Trends
-# =============================================================================
 logger.info("Analyzing personality trait trends across usage frequencies...")
 plot_data = []
-
 for group_name in groups.keys():
     for freq in range(7):
         subset = df[df[f'{group_name}_Max_Freq'] == freq]
@@ -59,10 +56,8 @@ for group_name in groups.keys():
             })
 
 summary_df = pd.DataFrame(plot_data)
-
 # Visualization 1: Personality Trait Slopes
 plt.figure(figsize=(15, 6))
-
 # Subplot A: Impulsivity Trends
 plt.subplot(1, 2, 1)
 sns.lineplot(data=summary_df, x='Frequency', y='Avg_Impulsive', hue='Group', marker='o', palette='Set1')
@@ -70,7 +65,6 @@ plt.title('Impulsivity vs. Usage Frequency (0-6)', fontsize=13)
 plt.xlabel('Frequency (0=Never, 6=Daily)')
 plt.ylabel('Mean Impulsivity Score (Z-Score)')
 plt.grid(True, linestyle='--', alpha=0.6)
-
 # Subplot B: Sensation Seeking Trends
 plt.subplot(1, 2, 2)
 sns.lineplot(data=summary_df, x='Frequency', y='Avg_SS', hue='Group', marker='o', palette='Set1')
@@ -86,7 +80,6 @@ plt.show()
 
 # =============================================================================
 # STAGE 3: Consumption Distribution Profiling
-# =============================================================================
 logger.info("Profiling consumption distribution across drug categories...")
 freq_dist = []
 
