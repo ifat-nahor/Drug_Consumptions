@@ -12,8 +12,8 @@ logger = logging.getLogger(__name__)
 # =============================================================================
 # Identify the absolute path of the current script
 current_file = Path(__file__).resolve()
-# Navigate 3 levels up to reach the project root directory
-project_root = current_file.parent.parent.parent
+# Navigate 2 levels up to reach the project root directory
+project_root = current_file.parent.parent
 # Define paths for input data and output visualizations
 file_path = project_root / 'data' / 'processed' / 'Drug_Consumption_Cleaned.csv'
 output_dir = project_root / 'plot_pics'
