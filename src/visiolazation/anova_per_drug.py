@@ -1,91 +1,69 @@
 import pandas as pd
+import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
-from scipy import stats
-import os
-
-# Load the cleaned dataset
-# Ensure the path is correct for your local setup
-df_cleaned = pd.read_csv('data/processed/Drug_Consumption_Cleaned.csv')
-
-def run_universal_anova(df, group_column, target_columns=None):
-    """
-    Performs ANOVA test and creates visualizations for each target variable 
-    against a grouping column (independent variable).
-    """
+from statsmodels.formula.api import ols
+from statsmodels.stats.anova import anova_lm
+from statsmodels.stats.multitest import multipletests
+# =============================================================================
+# STAGE 1: Data Loading and Filtering
+file_path = r'C:\Users\inbal\Desktop\pyton things\final_proj\data\processed\Drug_Consumption_Cleaned.csv'
+df = pd.read_csv(file_path)
+df = df[df['Semer'] == 0].copy()
+# =============================================================================
+# STAGE 2: Preparing Factors 
+# Using 'qcut' for efficient median splitting into categorical groups.
+df['Impulsive_Bin'] = pd.qcut(df['Impulsive'], 2, labels=['Low', 'High'])
+df['SS_Bin'] = pd.qcut(df['SS'], 2, labels=['Low', 'High'])
+drug_cols = ['Alcohol', 'Amphet', 'Amyl', 'Benzos', 'Caff', 'Cannabis', 'Choc', 
+             'Coke', 'Crack', 'Ecstasy', 'Heroin', 'Ketamine', 'Legalh', 'LSD', 
+             'Meth', 'Mushrooms', 'Nicotine', 'VSA']
+# =============================================================================
+# STAGE 3: Running Two-Way ANOVAs
+# Efficiency Note: We pre-filter columns to avoid 'if' checks inside the loop.
+valid_drugs = [d for d in drug_cols if d in df.columns]
+results = []
+for drug in valid_drugs:
+    formula = f'{drug} ~ C(Impulsive_Bin) * C(SS_Bin)'
+    # Running the Ordinary Least Squares model and ANOVA
+    model = ols(formula, data=df).fit()
+    aov_table = anova_lm(model, typ=2)
     
-    # 1. Automatically detect numerical columns if target_columns is not provided
-    if target_columns is None:
-        target_columns = df.select_dtypes(include=['number']).columns.tolist()
-        if group_column in target_columns:
-            target_columns.remove(group_column)
-
-    print(f"\n" + "="*60)
-    print(f"UNIVERSAL ANOVA SUMMARY: Grouping by '{group_column}'")
-    print("="*60)
-
-    results = []
-
-    # 2. Iterate through each trait (e.g., Impulsive, SS) and run the ANOVA test
-    for col in target_columns:
-        # Create a clean subset of the data containing only the drug and the trait
-        clean_data = df[[group_column, col]].dropna()
-        
-        # Prepare groups based on consumption levels (CL0 to CL6)
-        unique_groups = sorted(clean_data[group_column].unique())
-        groups = [clean_data[clean_data[group_column] == g][col] for g in unique_groups]
-        
-        # Check if there are enough groups and samples for a valid ANOVA
-        if len(groups) > 1 and all(len(g) > 1 for g in groups):
-            f_stat, p_val = stats.f_oneway(*groups)
-            sig_level = "Significant" if p_val < 0.05 else "Not Significant"
-            
-            results.append({
-                'Variable': col,
-                'F-Statistic': f_stat,
-                'p-value': p_val,
-                'Status': sig_level
-            })
-            
-            print(f"Variable: {col:15} | p-value: {p_val:.4e} | {sig_level}")
-
-            # 3. Visualization: Generate and save a Boxplot
-            plt.figure(figsize=(10, 6))
-            sns.boxplot(x=group_column, y=col, data=clean_data, palette='viridis', hue=group_column, legend=False)
-            plt.title(f'ANOVA: {col} by {group_column}\np-value: {p_val:.4e}', fontsize=14)
-            plt.grid(axis='y', linestyle='--', alpha=0.7)
-            
-            # Save the figure to the current folder
-            plt.tight_layout()
-            plt.savefig(f'anova_{group_column}_{col}.png')
-            plt.close() 
-        else:
-            print(f"Variable: {col:15} | Skipped (insufficient data/groups)")
-
-    summary_df = pd.DataFrame(results)
-    return summary_df
-
-# --- Execution Block ---
-
-# 1. Define the list of drugs (Independent Variables)
-drug_columns = [
-    'Alcohol', 'Amphet', 'Amyl', 'Benzos', 'Caff', 'Cannabis', 'Choc', 'Coke', 
-    'Crack', 'Ecstasy', 'Heroin', 'Ketamine', 'Legalh', 'LSD', 'Meth', 
-    'Mushrooms', 'Nicotine', 'Semer', 'VSA'
-]
-
-# 2. Define the personality traits (Dependent Variables)
-# Changed from BIS11/ImpSS to Impulsive/SS to match your cleaned data
-my_traits = ['Impulsive', 'SS']
-
-print("🚀 Starting ANOVA Analysis Pipeline...")
-
-# 3. Loop through all drugs and perform ANOVA against Impulsive and SS
-for drug in drug_columns:
-    if drug in df_cleaned.columns:
-        # Passing 'Impulsive' and 'SS' as the target columns
-        run_universal_anova(df_cleaned, group_column=drug, target_columns=my_traits)
-    else:
-        print(f"Skipping {drug} - column name not found in CSV.")
-
-print("\n✅ Analysis Complete! All plots have been generated and saved.")
+    results.append({
+        'Drug': drug,
+        'P_Impulsivity': aov_table.loc['C(Impulsive_Bin)', 'PR(>F)'],
+        'P_Sensation_Seeking': aov_table.loc['C(SS_Bin)', 'PR(>F)'],
+        'P_Interaction': aov_table.loc['C(Impulsive_Bin):C(SS_Bin)', 'PR(>F)']
+    })
+results_df = pd.DataFrame(results)
+# =============================================================================
+# STAGE 4: Bonferroni Multiple Comparison Correction
+p_cols = ['P_Impulsivity', 'P_Sensation_Seeking', 'P_Interaction']
+# Flattening and correcting all p-values at once for efficiency
+all_p_values = results_df[p_cols].values.flatten()
+_, corrected_p, _, _ = multipletests(all_p_values, method='bonferroni')
+# Reshaping back to the original table structure
+results_df[['P_Imp_Corr', 'P_SS_Corr', 'P_Inter_Corr']] = corrected_p.reshape(results_df[p_cols].shape)
+# =============================================================================
+# STAGE 5: GRAPH 1 - Significance Heatmap (-log10)
+plot_df = results_df.set_index('Drug')[['P_Imp_Corr', 'P_SS_Corr', 'P_Inter_Corr']]
+# Using clip to avoid infinity values in log transformation
+log_p_df = -np.log10(plot_df.astype(float).clip(lower=1e-10))
+plt.figure(figsize=(12, 8))
+sns.heatmap(log_p_df, annot=plot_df.round(4), cmap='YlOrRd', cbar_kws={'label': '-log10(p-value)'})
+plt.title('Graph 1: Statistical Significance (Bonferroni Corrected p-values)')
+plt.tight_layout()
+plt.savefig('plot_pics/anova_significance_heatmap.png')
+plt.show()
+# =============================================================================
+# STAGE 6: GRAPH 2 - Mean Consumption Heatmap
+# Grouping and calculating means for all drugs simultaneously
+mean_scores = df.groupby(['Impulsive_Bin', 'SS_Bin'], observed=True)[valid_drugs].mean().T
+plt.figure(figsize=(12, 10))
+sns.heatmap(mean_scores, annot=True, cmap='YlOrBr', fmt='.2f')
+plt.title('Graph 2: Mean Drug Consumption Score by Personality Profile')
+plt.xlabel('Personality Groups (Impulsivity | Sensation Seeking)')
+plt.ylabel('Drug Type')
+plt.tight_layout()
+plt.savefig('plot_pics/mean_consumption_heatmap.png')
+plt.show()

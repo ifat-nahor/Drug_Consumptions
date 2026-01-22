@@ -876,3 +876,79 @@ SECTION 9: Advanced Feature Engineering
 └── execute_feature_engineering()  <-- Master function that runs both A and B
 '''
 
+# src/data_cleaning.py
+
+import os
+import pandas as pd
+
+
+def detect_personality_and_drug_columns(df):
+    """
+    Automatically detect personality trait columns and drug consumption columns.
+
+    - Personality columns: numeric, typically standardized scores in range [-4, 4].
+    - Drug columns: categorical with values like 'CL0'–'CL6'.
+    """
+    # Select numeric columns (potential personality traits)
+    numeric_cols = df.select_dtypes(include=["float64", "int64"]).columns.tolist()
+    if "ID" in numeric_cols:
+        # ID should not be treated as a numeric feature
+        numeric_cols.remove("ID")
+
+    personality_cols = []
+    for col in numeric_cols:
+        col_min = df[col].min()
+        col_max = df[col].max()
+        # Personality scores in this dataset are standardized around [-4, 4]
+        if col_min >= -4 and col_max <= 4:
+            personality_cols.append(col)
+
+    # Select categorical columns (potential drug variables)
+    categorical_cols = df.select_dtypes(include=["object"]).columns.tolist()
+
+    drug_columns = []
+    for col in categorical_cols:
+        unique_values = df[col].unique()
+        # Drug columns contain codes like 'CL0', 'CL1', ..., 'CL6'
+        if any("CL" in str(val) for val in unique_values):
+            drug_columns.append(col)
+
+    # Fallback: if no personality columns detected, use all numeric columns
+    if not personality_cols:
+        personality_cols = numeric_cols
+
+    return personality_cols, drug_columns
+
+
+def run_data_cleaning_pipeline():
+    """
+    High-level wrapper that:
+    1. Loads the raw dataset from disk.
+    2. Detects personality and drug columns.
+    3. Runs the full cleaning pipeline.
+    4. Saves the cleaned dataset to the processed folder.
+    """
+    # 1. Build path to the raw CSV file
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    csv_path = os.path.join(current_dir, "..", "data", "raw", "Drug_Consumption.csv")
+
+    # 2. Load raw data
+    df = pd.read_csv(csv_path)
+
+    # 3. Detect personality trait and drug consumption columns
+    personality_cols, drug_columns = detect_personality_and_drug_columns(df)
+
+    # 4. Run the existing full cleaning pipeline
+    df_cleaned, cleaning_report = execute_complete_cleaning_pipeline(
+        df,
+        personality_cols=personality_cols,
+        drug_columns=drug_columns,
+    )
+
+    # 5. Save cleaned data to the processed folder
+    output_path = os.path.join(
+        current_dir, "..", "data", "processed", "Drug_Consumption_Cleaned.csv"
+    )
+    df_cleaned.to_csv(output_path, index=False)
+
+    return df_cleaned, cleaning_report
