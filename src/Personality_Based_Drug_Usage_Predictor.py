@@ -10,12 +10,13 @@ from scipy.stats import f_oneway
 import warnings
 
 import os
+from pathlib import Path
 
-PLOTS_DIR = r"C:\Users\ifatn\OneDrive\phyton_bit\final_proj\final_proj\src\visiolazation"
+# project root (final_proj)
+BASE_DIR = Path(__file__).resolve().parent.parent
 
-# Create directory if it doesn't exist
-os.makedirs(PLOTS_DIR, exist_ok=True)
-
+PLOTS_DIR = BASE_DIR / "src" / "visualization"
+PLOTS_DIR.mkdir(exist_ok=True)
 
 # Configuration
 warnings.filterwarnings('ignore')
@@ -23,7 +24,7 @@ logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 logger = logging.getLogger(__name__)
 
 # Constants (Project-wide settings)
-DATA_FILE = r"C:\Users\ifatn\OneDrive\phyton_bit\final_proj\final_proj\data\processed\Drug_Consumption_Cleaned.csv"
+DATA_FILE = BASE_DIR / "data" / "processed" / "Drug_Consumption_Cleaned.csv"
 PERSONALITY_COLS = ['Nscore', 'Escore', 'Oscore', 'AScore', 'Cscore', 'Impulsive', 'SS']
 DRUG_COLS = [
     'Alcohol', 'Amphet', 'Amyl', 'Benzos', 'Caff', 'Cannabis', 'Choc',
@@ -182,7 +183,6 @@ def analyze_substance_use(df, drug_columns, k):
             'Is_Significant': p_val < 0.05
         })
         results_df = pd.DataFrame(results)
-    return results_df
     return pd.DataFrame(results)
 
 def compute_and_save_mean_substance_use(df):
@@ -225,3 +225,20 @@ def summarize_substance_use_patterns(mean_use):
     logger.info(f"Substance use summary table saved to: {summary_path}")
 
     return summary_df
+
+def run_substance_use_analysis(df_analyzed, k):
+    results_df = analyze_substance_use(df_analyzed, DRUG_COLS, k)
+
+    anova_path = PLOTS_DIR / "anova_results.csv"
+    results_df.to_csv(anova_path, index=False)
+
+    mean_use = compute_and_save_mean_substance_use(df_analyzed)
+    summary_df = summarize_substance_use_patterns(mean_use)
+
+    logger.info(f"ANOVA results table saved to: {anova_path}")
+
+    return results_df, summary_df
+
+
+
+

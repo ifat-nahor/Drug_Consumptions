@@ -19,6 +19,7 @@ from Personality_Based_Drug_Usage_Predictor import (
     analyze_substance_use,
     logger,
     summarize_substance_use_patterns,
+    run_substance_use_analysis
 )
 def main():
     """Main execution flow."""
@@ -31,23 +32,14 @@ def main():
     
     # 3. Final Model
     df_analyzed = perform_final_clustering(df, x_pca, FINAL_K)
-    describe_personality_profiles(df_analyzed)      # תיאור פרופילי האישיות בלוג
+    describe_personality_profiles(df_analyzed)      
     
-    # 3b. Visualizations – שני הגרפים החדשים
+    # 3b. Visualizations 
     plot_pca_clusters(x_pca, df_analyzed)
     plot_personality_profiles(df_analyzed)
-    plot_personality_profiles_radar(df_analyzed)
-
     
     # 4. Statistical Validation
-    results_df = analyze_substance_use(df_analyzed, DRUG_COLS, FINAL_K)
-    results_df.to_csv("anova_results_to_cluster_use.csv", index=False)
-    mean_use = compute_and_save_mean_substance_use(df)
-    anova_results = analyze_substance_use(df, DRUG_COLS, k=FINAL_K)
-    anova_path = os.path.join(PLOTS_DIR, "anova_results_to_cluster_use.csv")
-    anova_results.to_csv(anova_path, index=False)
-    summary_df = summarize_substance_use_patterns(mean_use)
-    logger.info(f"ANOVA results table saved to: {anova_path}")
+    results_df, summary_df = run_substance_use_analysis(df_analyzed, FINAL_K)
 
     # 5. Final Reporting
     significant_count = results_df['Is_Significant'].sum()
