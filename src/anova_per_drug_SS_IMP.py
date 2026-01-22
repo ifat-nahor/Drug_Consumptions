@@ -12,7 +12,7 @@ from pathlib import Path
 # Locate the current script's absolute path
 current_file = Path(__file__).resolve()
 # Navigate 3 levels up to reach the project root directory (e.g., from src/vis/sub/ to root)
-project_root = current_file.parent.parent.parent
+project_root = current_file.parent.parent
 # Define path to the processed dataset using universal path separators
 file_path = project_root / 'data' / 'processed' / 'Drug_Consumption_Cleaned.csv'
 print(f"Searching for data in: {file_path}")
