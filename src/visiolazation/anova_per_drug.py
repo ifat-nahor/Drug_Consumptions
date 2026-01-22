@@ -5,65 +5,109 @@ import matplotlib.pyplot as plt
 from statsmodels.formula.api import ols
 from statsmodels.stats.anova import anova_lm
 from statsmodels.stats.multitest import multipletests
+from pathlib import Path
 # =============================================================================
-# STAGE 1: Data Loading and Filtering
-file_path = r'C:\Users\inbal\Desktop\pyton things\final_proj\data\processed\Drug_Consumption_Cleaned.csv'
-df = pd.read_csv(file_path)
-df = df[df['Semer'] == 0].copy()
+# STAGE 1: Data Loading & Environment Setup
 # =============================================================================
-# STAGE 2: Preparing Factors 
-# Using 'qcut' for efficient median splitting into categorical groups.
+# Locate the current script's absolute path
+current_file = Path(__file__).resolve()
+# Navigate 3 levels up to reach the project root directory (e.g., from src/vis/sub/ to root)
+project_root = current_file.parent.parent.parent
+# Define path to the processed dataset using universal path separators
+file_path = project_root / 'data' / 'processed' / 'Drug_Consumption_Cleaned.csv'
+print(f"Searching for data in: {file_path}")
+# Load the dataset into a DataFrame
+if file_path.exists():
+    df = pd.read_csv(file_path)
+    print("Data successfully loaded from the project directory")
+else:
+    print(f"Critical Error: Dataset not found at {file_path}")
+    exit()
+
+# =============================================================================
+# STAGE 2: Factor Preparation (Feature Binning)
+# =============================================================================
+# Discretize continuous personality traits into 'Low' and 'High' categories 
+# using a median split (qcut) to facilitate ANOVA factor analysis.
 df['Impulsive_Bin'] = pd.qcut(df['Impulsive'], 2, labels=['Low', 'High'])
 df['SS_Bin'] = pd.qcut(df['SS'], 2, labels=['Low', 'High'])
+
+# Define the list of substances to be analyzed
 drug_cols = ['Alcohol', 'Amphet', 'Amyl', 'Benzos', 'Caff', 'Cannabis', 'Choc', 
              'Coke', 'Crack', 'Ecstasy', 'Heroin', 'Ketamine', 'Legalh', 'LSD', 
              'Meth', 'Mushrooms', 'Nicotine', 'VSA']
+
 # =============================================================================
-# STAGE 3: Running Two-Way ANOVAs
-# Efficiency Note: We pre-filter columns to avoid 'if' checks inside the loop.
+# STAGE 3: Statistical Modeling (Two-Way ANOVA)
+# =============================================================================
+# Filter for drugs actually present in the dataframe to prevent execution errors
 valid_drugs = [d for d in drug_cols if d in df.columns]
 results = []
+
 for drug in valid_drugs:
+    # Model Formula: Consumption Frequency as a function of Impulsivity, 
+    # Sensation Seeking, and their interaction effect.
     formula = f'{drug} ~ C(Impulsive_Bin) * C(SS_Bin)'
-    # Running the Ordinary Least Squares model and ANOVA
     model = ols(formula, data=df).fit()
+    
+    # Run Type II ANOVA (suitable for unbalanced designs)
     aov_table = anova_lm(model, typ=2)
     
+    # Extract p-values for main effects and interaction
     results.append({
         'Drug': drug,
         'P_Impulsivity': aov_table.loc['C(Impulsive_Bin)', 'PR(>F)'],
         'P_Sensation_Seeking': aov_table.loc['C(SS_Bin)', 'PR(>F)'],
         'P_Interaction': aov_table.loc['C(Impulsive_Bin):C(SS_Bin)', 'PR(>F)']
     })
+
 results_df = pd.DataFrame(results)
+
 # =============================================================================
-# STAGE 4: Bonferroni Multiple Comparison Correction
+# STAGE 4: Multiple Comparison Correction
+# =============================================================================
+# Apply Bonferroni correction to mitigate the Family-Wise Error Rate (FWER) 
+# resulting from testing multiple hypotheses (18 drugs x 3 effects).
 p_cols = ['P_Impulsivity', 'P_Sensation_Seeking', 'P_Interaction']
-# Flattening and correcting all p-values at once for efficiency
 all_p_values = results_df[p_cols].values.flatten()
 _, corrected_p, _, _ = multipletests(all_p_values, method='bonferroni')
-# Reshaping back to the original table structure
+
+# Reshape corrected p-values back into the results dataframe structure
 results_df[['P_Imp_Corr', 'P_SS_Corr', 'P_Inter_Corr']] = corrected_p.reshape(results_df[p_cols].shape)
+
 # =============================================================================
-# STAGE 5: GRAPH 1 - Significance Heatmap (-log10)
+# STAGE 5: VISUALIZATION 1 - Statistical Significance Heatmap
+# =============================================================================
+# Define and create output directory at the project root
+output_dir = project_root / 'plot_pics'
+output_dir.mkdir(parents=True, exist_ok=True)
+
+# Prepare data for -log10 transformation to highlight significance levels
 plot_df = results_df.set_index('Drug')[['P_Imp_Corr', 'P_SS_Corr', 'P_Inter_Corr']]
-# Using clip to avoid infinity values in log transformation
 log_p_df = -np.log10(plot_df.astype(float).clip(lower=1e-10))
+
 plt.figure(figsize=(12, 8))
 sns.heatmap(log_p_df, annot=plot_df.round(4), cmap='YlOrRd', cbar_kws={'label': '-log10(p-value)'})
-plt.title('Graph 1: Statistical Significance (Bonferroni Corrected p-values)')
+plt.title('ANOVA Significance: Personality Traits & Interaction Effects (Bonferroni Corrected)')
 plt.tight_layout()
-plt.savefig('plot_pics/anova_significance_heatmap.png')
+
+# Save visualization using Pathlib integration
+plt.savefig(output_dir / 'anova_significance_heatmap.png')
 plt.show()
+
 # =============================================================================
-# STAGE 6: GRAPH 2 - Mean Consumption Heatmap
-# Grouping and calculating means for all drugs simultaneously
+# STAGE 6: VISUALIZATION 2 - Mean Consumption Profile Heatmap
+# =============================================================================
+# Calculate mean consumption scores across the four personality profiles
 mean_scores = df.groupby(['Impulsive_Bin', 'SS_Bin'], observed=True)[valid_drugs].mean().T
+
 plt.figure(figsize=(12, 10))
 sns.heatmap(mean_scores, annot=True, cmap='YlOrBr', fmt='.2f')
-plt.title('Graph 2: Mean Drug Consumption Score by Personality Profile')
-plt.xlabel('Personality Groups (Impulsivity | Sensation Seeking)')
-plt.ylabel('Drug Type')
+plt.title('Mean Drug Consumption Scores per Personality Profile')
+plt.xlabel('Personality Cohorts (Impulsivity | Sensation Seeking)')
+plt.ylabel('Substance Type')
 plt.tight_layout()
-plt.savefig('plot_pics/mean_consumption_heatmap.png')
+
+plt.savefig(output_dir / 'mean_consumption_heatmap.png')
 plt.show()
+print(f"Visualizations exported to: {output_dir}")

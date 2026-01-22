@@ -4,11 +4,9 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import os
 # =============================================================================
-# STAGE 1: Data Loading, Cleaning, and Categorical Grouping
+# STAGE 1: Data Loading and Categorical Grouping
 file_path = r'C:\Users\inbal\Desktop\pyton things\final_proj\data\processed\Drug_Consumption_Cleaned.csv'
 df = pd.read_csv(file_path)
-# Removing subjects who claimed usage of the non-existent drug 'Semer'
-df = df[df['Semer'] == 0].copy()
 # Defining the 4 groups
 groups = {
     'Hard Drugs': ['Heroin', 'Crack', 'Meth', 'Coke', 'VSA'],
