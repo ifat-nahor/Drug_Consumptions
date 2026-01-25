@@ -1,5 +1,38 @@
-# final_proj
-# Neuro-Data Analysis: Personality Traits and Drug Consumption
+
+
+ Instructions for Running the Project
+
+# 1️. Set up Python virtual environment
+python -m venv .venv
+
+# Activate the environment
+# Windows:
+.venv\Scripts\activate
+# Linux / Mac:
+source .venv/bin/activate
+
+# 2️.Install required packages
+pip install -r requirements.txt
+
+# 3️.Run the main project workflow
+python main.py
+
+# 4️.Check outputs
+# - All plots are saved in plot_pics/
+# - PCA visualizations saved in plots_pics_for_pca_cluster/
+# - Logs are in data_cleaning.log
+
+# 5️.Run tests (optional)
+pytest tests/
+
+
+
+
+
+
+
+
+
 
 ## Project Description
 [cite_start]This project analyzes the relationship between personality traits—specifically **Impulsivity (BIS-11)** and **Sensation Seeking (ImpSS)**—and the frequency of drug and alcohol consumption[cite: 127]. 
