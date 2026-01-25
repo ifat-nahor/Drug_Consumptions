@@ -15,7 +15,7 @@ from pathlib import Path
 # project root (final_proj)
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-PLOTS_DIR = BASE_DIR / "src" / "visualization"
+PLOTS_DIR = BASE_DIR / "plots_pics_for_pca_cluster"
 PLOTS_DIR.mkdir(exist_ok=True)
 
 # Configuration
@@ -34,7 +34,7 @@ DRUG_COLS = [
 K_SELECTION_RANGE = range(2, 11)
 FINAL_K = 3
 PCA_COMPONENTS = 3
-RANDOM_SEED = 42
+RANDOM_SEED = 1
 
 def load_and_scale_data(file_path, features):
     """Load dataset and return both the dataframe and scaled features."""
