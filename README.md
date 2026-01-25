@@ -1,4 +1,16 @@
 
+Project Overview
+
+
+Research Question: Can drug usage be predicted based on personality profiles?
+
+Hypothesis: Personality profiles (derived from Big Five traits) will significantly predict frequency of use across 19 different drug types (ANOVA, p<0.05).
+
+Neuroscience data analysis project examining the relationship between personality traits (Nscore, Escore, Oscore, Ascore, Cscore) and drug consumption patterns using PCA dimensionality reduction and KMeans clustering on 1885 participants.
+
+
+
+
 
  Instructions for Running the Project
 
