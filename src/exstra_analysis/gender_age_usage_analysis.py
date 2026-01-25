@@ -13,9 +13,9 @@ file_path = os.path.join(project_root, 'data', 'processed', 'Drug_Consumption_Cl
 try:
     df = pd.read_csv(file_path)
     df_processed = aggregate_drug_families(df)
-    print("✅ Data loaded and processed successfully!")
+    print(" Data loaded and processed successfully!")
 except FileNotFoundError:
-    print(f"❌ Error: Could not find the file at {file_path}")
+    print(f" Error: Could not find the file at {file_path}")
 
 # 2. ANALYSIS FUNCTION: GENDER x AGE x DRUG FAMILY WITH STATS
 def plot_gender_age_drug_analysis(df_input):
@@ -55,7 +55,7 @@ def plot_gender_age_drug_analysis(df_input):
         t_stat, p_val = stats.ttest_ind(male_grp, female_grp, nan_policy='omit')
         
         # Determine significance (p < 0.05)
-        significance = "Significant ✅" if p_val < 0.05 else "Not Significant ❌"
+        significance = "Significant " if p_val < 0.05 else "Not Significant "
         print(f"Family: {family:15} | P-Value: {p_val:.4f} | {significance}")
     print("="*50 + "\n")
     # ----------------------------------------
