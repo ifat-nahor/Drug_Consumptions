@@ -27,7 +27,7 @@ for score in ["Score_Stimulants", "Score_Depressants", "Score_Hallucinogens"]:
     male = df[df['Gender'] == 'Male'][score]
     female = df[df['Gender'] == 'Female'][score]
     t_stat, p_val = stats.ttest_ind(male, female, nan_policy='omit')
-    result = "Significant ✅" if p_val < 0.05 else "Not Significant ❌"
+    result = "Significant " if p_val < 0.05 else "Not Significant ❌"
     print(f"{score:18} | P-Value: {p_val:.4f} | {result}")
 print("="*50 + "\n")
 
