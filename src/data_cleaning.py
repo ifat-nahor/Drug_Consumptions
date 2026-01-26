@@ -3,6 +3,7 @@ import numpy as np
 from scipy import stats
 import warnings
 import os
+import logging
 
 try:
     from sklearn.cluster import KMeans
@@ -12,6 +13,43 @@ except ImportError:
     print(" Warning: 'sklearn' library not found. Clustering will be skipped.")
 
 warnings.filterwarnings('ignore')
+
+# ============================================================================
+# CONFIGURATION & CONSTANTS
+# ============================================================================
+# Avoid raw numbers/strings
+RANDOM_STATE = 1
+KMEANS_CLUSTERS = 3
+KMEANS_N_INIT = 10
+DISCRETE_THRESHOLD = 10
+
+# Drug Families Mapping
+DRUG_FAMILIES = {
+    'Stimulants': ['Amphet', 'Coke', 'Crack', 'Meth', 'Nicotine'],
+    'Depressants': ['Alcohol', 'Benzos', 'Heroin'],
+    'Hallucinogens': ['LSD', 'Mushrooms']
+}
+
+# Valid drug categories and columns
+VALID_DRUG_CATEGORIES = ['CL0', 'CL1', 'CL2', 'CL3', 'CL4', 'CL5', 'CL6']
+
+CONSUMPTION_MAPPING = {
+    'CL0': 0, 'CL1': 1, 'CL2': 2, 'CL3': 3,
+    'CL4': 4, 'CL5': 5, 'CL6': 6
+}
+
+# ============================================================================
+# LOGGING CONFIGURATION
+# ============================================================================
+# Use a logger instead of print statements
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler()
+    ]
+)
+logger = logging.getLogger(__name__)
 
 """
 PROJECT STRUCTURE & FUNCTION MAP
@@ -57,7 +95,7 @@ SECTION 10: Execution Wrapper
 
 ## Prints a standardized header to keep the code clean.
 def log_step(title):
-    print(f"\n{'='*80}\n[{title}]\n{'='*80}")
+    logger.info(f"\n{'='*80}\n[{title}]\n{'='*80}")
     
 ## ============================================================================
 ## SECTION 1: DATA QUALITY ASSESSMENT FUNCTIONS
@@ -69,8 +107,8 @@ def assess_dataset_overview(df):
     
     memory_mb = df.memory_usage(deep=True).sum() / 1024**2
     
-    print(f"Records: {df.shape[0]:,} | Features: {df.shape[1]}")
-    print(f"Memory Usage: {memory_mb:.2f} MB")
+    logger.info(f"Records: {df.shape[0]:,} | Features: {df.shape[1]}")
+    logger.info(f"Memory Usage: {memory_mb:.2f} MB")
     
     return {'rows': df.shape[0], 'cols': df.shape[1], 'memory': memory_mb}
 
@@ -84,14 +122,14 @@ def assess_missing_values(df):
     
     # quit early if no missing values
     if missing_counts.empty:
-        print(" No missing values detected - dataset is complete")
+        logger.info(" No missing values detected - dataset is complete")
         return missing_counts
         
     missing_percentage = (missing_counts / len(df)) * 100
     
     report = pd.concat([missing_counts, missing_percentage], axis=1, keys=['Missing_Count', 'Missing_%'])
     
-    print (report.round(2))
+    logger.info(report.round(2))
     
     return report
     
@@ -106,10 +144,10 @@ def detect_and_remove_duplicates(df):
     duplicates_removed = initial_rows - df.shape[0]
 
     if duplicates_removed > 0:
-        print(" Warning: Removed {duplicates_removed} duplicate rows")
-        print(f"New dataset size: {df.shape[0]:,} records")
+        logger.info(f" Warning: Removed {duplicates_removed} duplicate rows")
+        logger.info(f"New dataset size: {df.shape[0]:,} records")
     else:
-        print("No duplicate records found")
+        logger.info("No duplicate records found")
 
     return df, duplicates_removed
 
@@ -123,7 +161,7 @@ def validate_and_convert_numeric_columns(df, numeric_columns):
     
     cols_to_fix = [col for col in numeric_columns if col in df.columns]
     
-    print(f"Current Data Types (before conversion):\n{df[cols_to_fix].dtypes}\n{'-' * 20}")
+    logger.info(f"Current Data Types (before conversion):\n{df[cols_to_fix].dtypes}\n{'-' * 20}")
 
     old_dtypes = df[cols_to_fix].dtypes
     nans_before = df[cols_to_fix].isna().sum().sum()
@@ -137,9 +175,9 @@ def validate_and_convert_numeric_columns(df, numeric_columns):
     
     conversion_report = {'converted_columns': converted_cols, 'errors': errors_created}
 
-    print(f" Successfully converted {len(cols_to_fix)} columns to numeric format.")
+    logger.info(f" Successfully converted {len(cols_to_fix)} columns to numeric format.")
     if errors_created > 0:
-        print(f" Warning: {errors_created} values became NaN.")
+        logger.info(f" Warning: {errors_created} values became NaN.")
     
     return df, conversion_report
 
@@ -186,12 +224,12 @@ def assess_outliers_personality_traits(df, personality_cols):
     outlier_df = pd.DataFrame(outlier_summary)
     
     if not outlier_df.empty:
-        print(outlier_df.round(3).to_string(index=False))
+        logger.info(outlier_df.round(3).to_string(index=False))
     else:
-        print("No outliers found.")
-    
-    print("\n📌 Note: Personality scores are standardized (mean=0, SD=1)")
-    print("   Extreme outliers may indicate data entry errors or measurement issues")
+        logger.info("No outliers found.")
+
+    logger.info("\n Note: Personality scores are standardized (mean=0, SD=1)")
+    logger.info("   Extreme outliers may indicate data entry errors or measurement issues")
     
     return outlier_df
 
@@ -202,9 +240,7 @@ def assess_outliers_personality_traits(df, personality_cols):
 def validate_drug_consumption_encoding(df, drug_columns):
     """Validates that drug columns only contain CL0-CL6 values."""
     log_step("STEP 6: DRUG CONSUMPTION VALIDATION")
-    
-    valid_categories = ['CL0', 'CL1', 'CL2', 'CL3', 'CL4', 'CL5', 'CL6']
-    
+        
     ## Check for invalid category labels
     validation_report = {
         'valid_columns': 0,
@@ -215,7 +251,7 @@ def validate_drug_consumption_encoding(df, drug_columns):
     for drug in drug_columns:
         if drug in df.columns:
             ## Find any values not in the valid set
-            invalid = df[~df[drug].isin(valid_categories)][drug].unique()
+            invalid = df[~df[drug].isin(VALID_DRUG_CATEGORIES)][drug].unique()
             
             if len(invalid) > 0:
                 validation_report['invalid_columns'] += 1
@@ -224,11 +260,11 @@ def validate_drug_consumption_encoding(df, drug_columns):
                 validation_report['valid_columns'] += 1
     
     if validation_report['invalid_entries']:
-        print(f"\n Warning: {validation_report['invalid_columns']} columns with invalid categories:")
+        logger.info(f"\n Warning: {validation_report['invalid_columns']} columns with invalid categories:")
         for drug, values in validation_report['invalid_entries'].items():
-            print(f"  {drug}: {values}")
+            logger.info(f"  {drug}: {values}")
     else:
-        print(f"All {validation_report['valid_columns']} drug columns have valid encodings")
+        logger.info(f"All {validation_report['valid_columns']} drug columns have valid encodings")
     
     return validation_report
 
@@ -236,20 +272,15 @@ def convert_drug_consumption_to_numeric(df, drug_columns):
     """Converts categorical values (CL0-CL6) to numeric (0-6)."""
     log_step("STEP 6.5: CONVERT DRUG CONSUMPTION TO NUMERIC")
     
-    consumption_mapping = {
-        'CL0': 0, 'CL1': 1, 'CL2': 2, 'CL3': 3,
-        'CL4': 4, 'CL5': 5, 'CL6': 6
-    }
-    
     cols = [c for c in drug_columns if c in df.columns]
     
-    df[cols] = df[cols].replace(consumption_mapping)
+    df[cols] = df[cols].replace(CONSUMPTION_MAPPING)
     
     try:
         df[cols] = df[cols].astype(int)
-        print(f"Successfully converted {len(cols)} columns to numeric scale (0-6).")
+        logger.info(f"Successfully converted {len(cols)} columns to numeric scale (0-6).")
     except ValueError as e:
-        print(f"Critical Error: Could not convert all values. Details: {e}")
+        logger.error(f"Critical Error: Could not convert all values. Details: {e}")
     
     return df
 
@@ -265,44 +296,51 @@ def assess_demographic_variables(df):
     
     ## Age distribution analysis
     if 'Age' in df.columns:
-        print("\n AGE DISTRIBUTION:")
+        logger.info("\n AGE DISTRIBUTION:")
         age_series = pd.to_numeric(df['Age'], errors='coerce')
-        print(f"   Unique Values: {age_series.nunique()}")
-        print(f"   Range: {age_series.min()} to {age_series.max()}")
-        print(f"   Mean: {age_series.mean():.2f} | SD: {age_series.std():.2f}")
-        demographic_report['age'] = {
+        if not age_series.isna().all() and age_series.nunique() > DISCRETE_THRESHOLD:
+            logger.info(f"   Unique Values: {age_series.nunique()}")
+            logger.info(f"   Range: {age_series.min()} to {age_series.max()}")
+            logger.info(f"   Mean: {age_series.mean():.2f} | SD: {age_series.std():.2f}")
+            demographic_report['age'] = {
             'unique': age_series.nunique(),
             'range': (age_series.min(), age_series.max())
-        }
+            }
+            
+        else:
+            age_counts = df['Age'].value_counts().sort_index()
+            logger.info(f"   Unique Levels: {len(age_counts)}")
+            logger.info(f"   Distribution:\n{age_counts.to_string()}")
+            demographic_report['age'] = age_counts.to_dict()
     
     ## Gender distribution analysis
     if 'Gender' in df.columns:
-        print("\n GENDER DISTRIBUTION:")
+        logger.info("\n GENDER DISTRIBUTION:")
         gender_counts = df['Gender'].value_counts()
         for gender, count in gender_counts.items():
             pct = (count / len(df)) * 100
-            print(f"   {gender}: {count:,} ({pct:.1f}%)")
+            logger.info(f"   {gender}: {count:,} ({pct:.1f}%)")
         demographic_report['gender'] = gender_counts.to_dict()
     
     ## Education level distribution analysis
     if 'Education' in df.columns:
-        print("\n EDUCATION DISTRIBUTION:")
-        print(f"   Unique Levels: {df['Education'].nunique()}")
+        logger.info("\n EDUCATION DISTRIBUTION:")
+        logger.info(f"   Unique Levels: {df['Education'].nunique()}")
         education_counts = df['Education'].value_counts()
         for edu, count in education_counts.items():
             pct = (count / len(df)) * 100
-            print(f"   {edu}: {count:,} ({pct:.1f}%)")
+            logger.info(f"   {edu}: {count:,} ({pct:.1f}%)")
         demographic_report['education'] = education_counts.to_dict()
     
     ## Country/nationality distribution
     if 'Country' in df.columns:
-        print("\n COUNTRY DISTRIBUTION:")
+        logger.info("\n COUNTRY DISTRIBUTION:")
         country_counts = df['Country'].value_counts().head(10)
-        print(f"   Total Countries: {df['Country'].nunique()}")
-        print("   Top 10 Countries:")
+        logger.info(f"   Total Countries: {df['Country'].nunique()}")
+        logger.info("   Top 10 Countries:")
         for country, count in country_counts.items():
             pct = (count / len(df)) * 100
-            print(f"      {country}: {count:,} ({pct:.1f}%)")
+            logger.info(f"      {country}: {count:,} ({pct:.1f}%)")
         demographic_report['country'] = country_counts.to_dict()
     
     return demographic_report
@@ -322,14 +360,14 @@ def calculate_descriptive_statistics(df, numeric_cols):
     stats_summary['Skewness'] = df[numeric_cols].skew()
     stats_summary['Kurtosis'] = df[numeric_cols].kurtosis()
     
-    print(stats_summary.round(3))
+    logger.info(stats_summary.round(3).to_string())
     
     return stats_summary
 
 def calculate_primary_correlation(df, var1, var2):
     """Test correlation between two specific variables (e.g., Impulsivity & Sensation Seeking)."""
     log_step("STEP 9: PRIMARY CORRELATION ANALYSIS")
-    print(f"Hypothesis: Correlation between {var1} and {var2}")
+    logger.info(f"Hypothesis: Correlation between {var1} and {var2}")
     
     if var1 in df.columns and var2 in df.columns:
         ## Remove missing values before correlation calculation
@@ -340,9 +378,9 @@ def calculate_primary_correlation(df, var1, var2):
         ## Calculate Pearson correlation coefficient and statistical significance
         corr, p_value = stats.pearsonr(valid_var1, valid_var2)
         
-        print(f"\nPearson Correlation Coefficient: r = {corr:.4f}")
-        print(f"P-value: {p_value:.4e}")
-        print(f"N (valid pairs): {len(valid_var1)}")
+        logger.info(f"\nPearson Correlation Coefficient: r = {corr:.4f}")
+        logger.info(f"P-value: {p_value:.4e}")
+        logger.info(f"N (valid pairs): {len(valid_var1)}")
         
         ## Interpret effect size (Cohen's guidelines)
         effect_size = abs(corr)
@@ -351,21 +389,21 @@ def calculate_primary_correlation(df, var1, var2):
         elif effect_size < 0.5: magnitude = "medium"
         else: magnitude = "large"
         
-        print(f"Effect Size: {magnitude.upper()} (|r| = {effect_size:.4f})")
+        logger.info(f"Effect Size: {magnitude.upper()} (|r| = {effect_size:.4f})")
         
         ## Interpret statistical significance
         if p_value < 0.001:
-            print("*** HIGHLY SIGNIFICANT (p < 0.001) ***")
+            logger.info("*** HIGHLY SIGNIFICANT (p < 0.001) ***")
         elif p_value < 0.01:
-            print("** SIGNIFICANT (p < 0.01) **")
+            logger.info("** SIGNIFICANT (p < 0.01) **")
         elif p_value < 0.05:
-            print("* SIGNIFICANT (p < 0.05) *")
+            logger.info("* SIGNIFICANT (p < 0.05) *")
         else:
-            print("NOT SIGNIFICANT (p ≥ 0.05)")
+            logger.info("NOT SIGNIFICANT (p ≥ 0.05)")
         
         return corr, p_value
     else:
-        print("Error: One or both columns not found")
+        logger.error("Error: One or both columns not found")
         return None, None
 
 ## ============================================================================
@@ -375,19 +413,19 @@ def calculate_primary_correlation(df, var1, var2):
 def assess_normality_and_distribution(df, numeric_cols):
     """Test normality assumption (Shapiro-Wilk) and assess distribution shape."""
     log_step("STEP 10: NORMALITY ASSESSMENT & DISTRIBUTION SHAPE")
-    
-    print("Interpreting Normality:")
-    print("  Skewness: 0 = symmetric, ±0.5 = acceptable, >±1 = highly skewed")
-    print("  Kurtosis: 0 = normal, <3 = light tails, >3 = heavy tails")
-    print("  Shapiro-Wilk: p > 0.05 = normally distributed\n")
-    
+
+    logger.info("Interpreting Normality:")
+    logger.info("  Skewness: 0 = symmetric, ±0.5 = acceptable, >±1 = highly skewed")
+    logger.info("  Kurtosis: 0 = normal, <3 = light tails, >3 = heavy tails")
+    logger.info("  Shapiro-Wilk: p > 0.05 = normally distributed\n")
+
     normality_results = []
     
     for col in numeric_cols:
         if col in df.columns:
             data = df[col].dropna()
             if len(data) < 3:
-                print(f" Not enough data to assess normality for {col} (n={len(data)})")
+                logger.info(f" Not enough data to assess normality for {col} (n={len(data)})")
                 continue
             
             ## Calculate skewness & kurtosis
@@ -395,7 +433,7 @@ def assess_normality_and_distribution(df, numeric_cols):
             kurtosis = data.kurtosis()
             
             ## Shapiro-Wilk normality test (limited to 5000 samples for efficiency)
-            sample_data = data.sample(min(5000, len(data)), random_state=5)
+            sample_data = data.sample(min(5000, len(data)), random_state=RANDOM_STATE)
             stat, p_val = stats.shapiro(sample_data)
             
             ## Determine normality status based on all three tests
@@ -411,7 +449,7 @@ def assess_normality_and_distribution(df, numeric_cols):
             })
     
     normality_df = pd.DataFrame(normality_results)
-    print(normality_df.to_string(index=False))
+    logger.info("\n" + normality_df.to_string(index=False))
     
     return normality_df
 
@@ -472,16 +510,16 @@ def execute_complete_cleaning_pipeline(df, personality_cols, drug_columns):
     
     ## FINAL SUMMARY
     log_step("FINAL CLEANING SUMMARY")
-    print(f" Final Records: {df.shape[0]:,}")
-    print(f" Records Removed (Duplicates): {dup_count}")
-    print(f" Total Features: {df.shape[1]}")
+    logger.info(f" Final Records: {df.shape[0]:,}")
+    logger.info(f" Records Removed (Duplicates): {dup_count}")
+    logger.info(f" Total Features: {df.shape[1]}")
     
     total_cells = df.shape[0] * df.shape[1]
     missing_cells = df.isnull().sum().sum()
     completeness = ((total_cells - missing_cells) / total_cells) * 100
-    print(f" Data Completeness: {completeness:.2f}%")
-    print(" Dataset Status: READY FOR STATISTICAL ANALYSIS")
-    print("="*80)
+    logger.info(f" Data Completeness: {completeness:.2f}%")
+    logger.info(" Dataset Status: READY FOR STATISTICAL ANALYSIS")
+    logger.info("="*80)
     
     return df, cleaning_report
 
@@ -499,26 +537,16 @@ def aggregate_drug_families(df):
     """
     log_step("STEP 11A: AGGREGATING DRUG FAMILIES")
     
-    # 1. Define Families
-    stimulants = ['Amphet', 'Coke', 'Crack', 'Meth', 'Nicotine']
-    depressants = ['Alcohol', 'Benzos', 'Heroin']
-    hallucinogens = ['LSD', 'Mushrooms']
-    
-    # 2. Identify available columns
+    # Identify available columns
     available_cols = df.columns.tolist()
-    stim_cols = [c for c in stimulants if c in available_cols]
-    dep_cols = [c for c in depressants if c in available_cols]
-    hall_cols = [c for c in hallucinogens if c in available_cols]
     
-    # 3. Create Scores
-    if stim_cols:
-        df['Score_Stimulants'] = df[stim_cols].max(axis=1)
-    if dep_cols:
-        df['Score_Depressants'] = df[dep_cols].max(axis=1)
-    if hall_cols:
-        df['Score_Hallucinogens'] = df[hall_cols].max(axis=1)
-        
-    print(" Created family scores for: Stimulants, Depressants, Hallucinogens")
+    for family_name, drugs_list in DRUG_FAMILIES.items():
+        relevant_cols = [c for c in drugs_list if c in available_cols]
+        if relevant_cols:
+            col_name = f'Score_{family_name}'
+            df[col_name] = df[relevant_cols].max(axis=1)
+            logger.info(f" Created {col_name} from {len(relevant_cols)} columns")
+                    
     return df
 
 def create_usage_groups_kmeans(df, target_drug):
@@ -528,25 +556,25 @@ def create_usage_groups_kmeans(df, target_drug):
     log_step(f"STEP 11B: GENERATING CLUSTERS (K-MEANS) FOR: {target_drug}")
     
     if not SKLEARN_AVAILABLE:
-        print(" Skipping K-Means: scikit-learn library is not installed.")
+        logger.warning(" Skipping K-Means: scikit-learn library is not installed.")
         return df
     
     if target_drug not in df.columns:
         # Check if maybe the user wants to cluster on a family created in Part A
-        print(f" Warning: Column '{target_drug}' not found. Skipping clustering.")
+        logger.warning(f" Warning: Column '{target_drug}' not found. Skipping clustering.")
         return df
     
     # 1. Prepare Data
     original_count = len(df)
     if df[target_drug].isnull().sum() > 0:
         df = df.dropna(subset=[target_drug])
-        print(f" Note: Dropped {original_count - len(df)} rows due to missing '{target_drug}' data.")
+        logger.info(f" Note: Dropped {original_count - len(df)} rows due to missing '{target_drug}' data.")
         
     X = df[[target_drug]].values
     
     # 2. Fit K-Means
     try:
-        kmeans = KMeans(n_clusters=3, random_state=5, n_init=10)
+        kmeans = KMeans(n_clusters=KMEANS_CLUSTERS, random_state=RANDOM_STATE, n_init=KMEANS_N_INIT)
         kmeans.fit(X)
     
         temp_df = pd.DataFrame({'Score': df[target_drug], 'Cluster': kmeans.labels_})
@@ -561,11 +589,11 @@ def create_usage_groups_kmeans(df, target_drug):
     
         df['Usage_Group'] = temp_df['Cluster'].map(name_mapping)
     
-        print(f" Clusters created for '{target_drug}':")
-        print(df['Usage_Group'].value_counts())
+        logger.info(f" Clusters created for '{target_drug}':")
+        logger.info(df['Usage_Group'].value_counts().to_string())
     
     except Exception as e:
-        print(f" Error during K-Means clustering: {e}")
+        logger.error(f" Error during K-Means clustering: {e}")
     return df
 
 def execute_feature_engineering(df, clustering_target='Cannabis'):
@@ -631,12 +659,12 @@ def run_data_cleaning_pipeline():
     csv_path = os.path.join(current_dir, "..", "data", "raw", "Drug_Consumption.csv")
     
     if not os.path.exists(csv_path):
-        print(f" Error: File not found at {csv_path}")
-        print("Please check the path or put the CSV file in the 'data/raw' folder.")
+        logger.error(f" Error: File not found at {csv_path}")
+        logger.info("Please check the path or put the CSV file in the 'data/raw' folder.")
         return None, None
 
     # 2. Load raw data
-    print(f" Loading data from: {csv_path}")
+    logger.info(f" Loading data from: {csv_path}")
     df = pd.read_csv(csv_path)
 
     # 3. Detect personality trait and drug consumption columns
@@ -653,7 +681,7 @@ def run_data_cleaning_pipeline():
     if 'execute_feature_engineering' in globals():
         df_final = execute_feature_engineering(df_cleaned)
     else:
-        print(" Warning: Feature engineering function not found. Saving cleaned data only.")
+        logger.warning(" Warning: Feature engineering function not found. Saving cleaned data only.")
         df_final = df_cleaned
 
     # 6. Save cleaned data to the processed folder
@@ -662,13 +690,12 @@ def run_data_cleaning_pipeline():
     )
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
     df_final.to_csv(output_path, index=False)
-    print(f"\n Saved fully processed data to: {output_path}")
-
+    logger.info(f"\n Saved fully processed data to: {output_path}")
     return df_final, cleaning_report
 
 # ============================================================================
 # MAIN EXECUTION BLOCK
 # ============================================================================
 if __name__ == "__main__":
-    print(" Starting Data Cleaning Pipeline...")
+    logger.info(" Starting Data Cleaning Pipeline...")
     run_data_cleaning_pipeline()
