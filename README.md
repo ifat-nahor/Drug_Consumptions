@@ -32,7 +32,7 @@ python main.py
 # 4️.Check outputs
 # - All plots are saved in plot_pics/
 # - PCA visualizations saved in plots_pics_for_pca_cluster/
-# - Logs are in data_cleaning.log
+# - Execution logs are printed directly to the console
 
 # 5️.Run tests (optional)
 pytest tests/
