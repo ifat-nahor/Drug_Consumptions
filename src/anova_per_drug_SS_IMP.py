@@ -11,7 +11,7 @@ from pathlib import Path
 # =============================================================================
 # Locate the current script's absolute path
 current_file = Path(__file__).resolve()
-# Navigate 3 levels up to reach the project root directory (e.g., from src/vis/sub/ to root)
+# Navigate 3 levels up to reach the project root directory 
 project_root = current_file.parent.parent
 # Define path to the processed dataset using universal path separators
 file_path = project_root / 'data' / 'processed' / 'Drug_Consumption_Cleaned.csv'
@@ -31,7 +31,6 @@ else:
 # using a median split (qcut) to facilitate ANOVA factor analysis.
 df['Impulsive_Bin'] = pd.qcut(df['Impulsive'], 2, labels=['Low', 'High'])
 df['SS_Bin'] = pd.qcut(df['SS'], 2, labels=['Low', 'High'])
-
 # Define the list of substances to be analyzed
 drug_cols = ['Alcohol', 'Amphet', 'Amyl', 'Benzos', 'Caff', 'Cannabis', 'Choc', 
              'Coke', 'Crack', 'Ecstasy', 'Heroin', 'Ketamine', 'Legalh', 'LSD', 
@@ -50,7 +49,7 @@ for drug in valid_drugs:
     formula = f'{drug} ~ C(Impulsive_Bin) * C(SS_Bin)'
     model = ols(formula, data=df).fit()
     
-    # Run Type II ANOVA (suitable for unbalanced designs)
+    # Run Type II ANOVA 
     aov_table = anova_lm(model, typ=2)
     
     # Extract p-values for main effects and interaction
@@ -79,7 +78,7 @@ results_df[['P_Imp_Corr', 'P_SS_Corr', 'P_Inter_Corr']] = corrected_p.reshape(re
 # STAGE 5: VISUALIZATION 1 - Statistical Significance Heatmap
 # =============================================================================
 # Define and create output directory at the project root
-output_dir = project_root / 'plot_pics'
+output_dir = project_root / 'plot_pics_for_groups_vs_imp_ss'
 output_dir.mkdir(parents=True, exist_ok=True)
 
 # Prepare data for -log10 transformation to highlight significance levels

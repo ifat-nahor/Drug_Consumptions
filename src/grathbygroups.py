@@ -15,7 +15,7 @@ current_file = Path(__file__).resolve()
 project_root = current_file.parent.parent
 # Define paths for input data and output visualizations
 file_path = project_root / 'data' / 'processed' / 'Drug_Consumption_Cleaned.csv'
-output_dir = project_root / 'plot_pics'
+output_dir = project_root / 'plot_pics_for_groups_vs_imp_ss'
 # Ensure the output directory exists
 output_dir.mkdir(parents=True, exist_ok=True)
 logger.info(f"Searching for data file at: {file_path}")
