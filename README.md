@@ -2,14 +2,22 @@
 Project Overview
 
 
-Research Question: Can drug usage be predicted based on personality profiles?
+first Research Question: Can drug usage be predicted based on personality profiles?
 
 Hypothesis: Personality profiles (derived from Big Five traits) will significantly predict frequency of use across 19 different drug types (ANOVA, p<0.05).
 
 Neuroscience data analysis project examining the relationship between personality traits (Nscore, Escore, Oscore, Ascore, Cscore) and drug consumption patterns using PCA dimensionality reduction and KMeans clustering on 1885 participants.
 
+second Research Question:
+To what extent do specific personality traits—specifically Impulsivity and Sensation Seeking (SS)—predict the frequency of drug consumption across distinct neuro-pharmacological categories (Hard Drugs, Psychedelics, Prescription, and Daily Addictive substances)?
 
+Hypothesis:We hypothesize a significant positive correlation between high levels of Impulsivity/SS and increased substance use frequency. 
 
+Conclusions: 
+Personality traits are significant predictors for 17 out of 19 drugs analyzed.
+Higher substance use frequency is directly linked to higher Impulsivity and Sensation Seeking scores.
+The strongest personality-usage links were found in Hard Drugs and Psychedelics categories.
+Results remained significant even after applying a strict Bonferroni correction.
 
 
  Instructions for Running the Project
