@@ -8,6 +8,8 @@ from sklearn.cluster import KMeans
 from sklearn.metrics import silhouette_score
 from scipy.stats import f_oneway
 import warnings
+from sklearn.metrics import silhouette_score, silhouette_samples
+
 
 import os
 from pathlib import Path
@@ -239,6 +241,14 @@ def run_substance_use_analysis(df_analyzed, k):
 
     return results_df, summary_df
 
+def quantify_cluster_overlap(pca_data, labels):
+    """Quantitative cluster separation check (per instructor feedback)."""
+    sil_avg = silhouette_score(pca_data, labels)  # Average silhouette across samples
+    sil_individual = silhouette_samples(pca_data, labels)  # Per-sample silhouette
+    border_pct = 100 * np.mean(sil_individual < 0.2)  # % of border/ambiguous points
+    logger.info(f"Overlap check: Silhouette={sil_avg:.3f}, Border={border_pct:.1f}%")
+    return sil_avg, border_pct
+
 
 #make pipeline for main 
 
@@ -253,6 +263,7 @@ def run_personality_based_drug_usage_pipeline():
 
     df_analyzed = perform_final_clustering(df, x_pca, FINAL_K)
     describe_personality_profiles(df_analyzed)
+    sil_final, border_pct = quantify_cluster_overlap(x_pca, df_analyzed['Cluster'])
 
     plot_pca_clusters(x_pca, df_analyzed)
     plot_personality_profiles(df_analyzed)
