@@ -2,94 +2,89 @@ import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
 import networkx as nx
-import logging
-import sys
+import os
 import warnings
 
-# --- 1. CLEAN LOGGING & WARNINGS ---
-# Silence technical noise from libraries
 warnings.filterwarnings("ignore")
-logging.getLogger('matplotlib.category').setLevel(logging.ERROR)
-logging.getLogger('matplotlib').setLevel(logging.ERROR)
-
-logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s', force=True)
-logger = logging.getLogger("GatewayAnalysis")
+OUTPUT_FOLDER = "plots_pics_for_behavioral_and_gateway"
+os.makedirs(OUTPUT_FOLDER, exist_ok=True)
 
 def run_gateway_analysis(df):
-    """
-    Identifies 'Gateway' correlations between substances for each cluster.
-    """
     gateway_drugs = ['Alcohol', 'Cannabis', 'Nicotine']
     advanced_drugs = ['Coke', 'Ecstasy', 'LSD', 'Benzos']
     
-    g_cols = [c for c in gateway_drugs if c in df.columns]
-    a_cols = [c for c in advanced_drugs if c in df.columns]
+    # 1. חישוב ממוצע אימפולסיביות לכל קלאסטר
+    means = df.groupby('Cluster')['Impulsive'].mean()
+    
+    # 2. זיהוי חד-משמעי של הקבוצות לפי הערכים
+    imp_idx = means.idxmax()  # הקבוצה הכי אימפולסיבית (ה-0.53 בקשר)
+    sta_idx = means.idxmin()  # הקבוצה הכי יציבה (ה-0.40 בקשר)
+    ext_idx = [i for i in means.index if i not in [imp_idx, sta_idx]][0]
 
-    # Ensure numeric types to avoid the "categorical units" warning
-    for col in g_cols + a_cols:
-        df[col] = pd.to_numeric(df[col], errors='coerce')
+    mapping = {
+        imp_idx: "C0_Anxious_Impulsive",
+        sta_idx: "C1_Stable_Conservative",
+        ext_idx: "C2_Extroverted"
+    }
 
-    for cluster_id in sorted(df['Cluster'].unique()):
+    for cluster_id, profile_name in mapping.items():
+        # ניקוי זיכרון הגרפים לפני כל סיבוב
+        plt.close('all')
+        plt.clf()
+        
         cluster_data = df[df['Cluster'] == cluster_id]
         
-        # Calculate Correlation Matrix for the heatmap
-        corr_matrix = cluster_data[g_cols + a_cols].corr()
-        gateway_corr = corr_matrix.loc[g_cols, a_cols]
-        
-        # --- ANALYTICAL INSIGHTS ---
-        # Find the strongest gateway connection in this cluster
-        top_relation = gateway_corr.unstack().idxmax()
-        max_val = gateway_corr.unstack().max()
-        
-        logger.info("-" * 45)
-        logger.info(f"GATEWAY ANALYSIS: CLUSTER {cluster_id}")
-        logger.info(f"-> Strongest Correlation: {top_relation[1]} is linked to {top_relation[0]}.")
-        logger.info(f"-> Connection Strength: {max_val:.2f}")
-        logger.info("-" * 45)
+        # חישוב קורלציה ספציפי לקבוצה הזו
+        corr_matrix = cluster_data[gateway_drugs + advanced_drugs].apply(pd.to_numeric).corr()
+        gateway_corr = corr_matrix.loc[gateway_drugs, advanced_drugs]
 
-        # Visual 1: Interaction Heatmap
+        # בדיקה לטרמינל: מה הקשר בין קנאביס לאקסטזי בקבוצה הזו?
+        val = gateway_corr.loc['Cannabis', 'Ecstasy']
+        print(f"DEBUG: {profile_name} | Cannabis-Ecstasy Correlation: {val:.2f}")
+
+        # יצירת HEATMAP
         plt.figure(figsize=(8, 5))
-        sns.heatmap(gateway_corr, annot=True, cmap='Reds', fmt=".2f")
-        plt.title(f"Gateway Correlation: Cluster {cluster_id}")
+        sns.heatmap(gateway_corr, annot=True, cmap='Reds', fmt=".2f", vmin=0.2, vmax=0.6)
+        plt.title(f"Gateway Analysis: {profile_name.replace('_', ' ')}")
         plt.tight_layout()
-        plt.show()
+        
+        # שמירה עם שם קובץ ייחודי
+        plt.savefig(f"{OUTPUT_FOLDER}/gateway_heatmap_{profile_name}.png")
+        plt.close()
 
-        # Visual 2: Gateway Network Map
-        _plot_network(cluster_data, cluster_id, g_cols, a_cols)
+        # יצירת NETWORK
+        _plot_network(cluster_data, profile_name, gateway_drugs, advanced_drugs)
 
-def _plot_network(cluster_data, cluster_id, g_cols, a_cols):
-    """Generates an intuitive graph where edge thickness represents correlation strength."""
-    corr = cluster_data[g_cols + a_cols].corr()
+def _plot_network(cluster_data, profile_name, g_cols, a_cols):
+    plt.close('all')
+    plt.clf()
+    corr = cluster_data[g_cols + a_cols].apply(pd.to_numeric).corr()
     G = nx.Graph()
-    
-    threshold = 0.25
     for g in g_cols:
         for a in a_cols:
-            weight = corr.loc[g, a]
-            if weight > threshold:
-                G.add_edge(g, a, weight=weight)
-
+            if corr.loc[g, a] > 0.25:
+                G.add_edge(g, a, weight=corr.loc[g, a])
+    
+    plt.figure(figsize=(10, 6))
     if len(G.edges()) > 0:
-        plt.figure(figsize=(10, 6))
-        pos = nx.shell_layout(G)
-        weights = [G[u][v]['weight'] * 8 for u, v in G.edges()]
+        pos = nx.spring_layout(G, k=0.5)
+        nx.draw(G, pos, with_labels=True, node_size=3000, node_color='lavender', 
+                font_weight='bold', edge_color='tomato', width=2)
         
-        nx.draw_networkx_nodes(G, pos, node_size=2500, node_color='lavender', edgecolors='black')
-        nx.draw_networkx_edges(G, pos, width=weights, edge_color='tomato', alpha=0.6)
-        nx.draw_networkx_labels(G, pos, font_size=10, font_weight='bold')
-        
-        plt.title(f"Visual Gateway Map: Cluster {cluster_id}")
-        plt.axis('off')
-        plt.show()
+    plt.title(f"Network Map: {profile_name.replace('_', ' ')}")
+    plt.axis('off')
+    plt.savefig(f"{OUTPUT_FOLDER}/gateway_network_{profile_name}.png")
+    plt.close()
 
 if __name__ == "__main__":
-    try:
-        # Import Ifat's script to execute the clustering pipeline
-        import Personality_Based_Drug_Usage_Predictor as predictor
-        df_raw, scaled = predictor.load_and_scale_data(predictor.DATA_FILE, predictor.PERSONALITY_COLS)
-        pca_results = predictor.apply_pca(scaled, predictor.PCA_COMPONENTS)
-        df_final = predictor.perform_final_clustering(df_raw, pca_results, predictor.FINAL_K)
-        
-        run_gateway_analysis(df_final)
-    except Exception as e:
-        logger.error(f"Failed to run Gateway Analysis: {e}")
+    import Personality_Based_Drug_Usage_Predictor as predictor
+    from sklearn.cluster import KMeans
+    
+    df_raw, scaled = predictor.load_and_scale_data(predictor.DATA_FILE, predictor.PERSONALITY_COLS)
+    pca_res = predictor.apply_pca(scaled, predictor.PCA_COMPONENTS)
+    
+    kmeans = KMeans(n_clusters=3, random_state=1, n_init=10)
+    df_raw['Cluster'] = kmeans.fit_predict(pca_res)
+    
+    run_gateway_analysis(df_raw)
+    print("\nהגרפים נוצרו מחדש. אנא בדקי את הקבצים בתיקייה.")
