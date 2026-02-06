@@ -38,7 +38,7 @@ pip install -r requirements.txt
 python main.py
 
 # 4️.Check outputs
-# - All plots are saved in plot_pics/
+# - All plots are saved in plot_pics_for_groups_vs_imp_ss
 # - PCA visualizations saved in plots_pics_for_pca_cluster/
 # - Execution logs are printed directly to the console
 
